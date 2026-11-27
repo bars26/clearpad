@@ -2,6 +2,8 @@
 
 A launchpad for [Ammora](https://ammora.org) V4 launches on GIWA Sepolia that checks graduation before anyone signs.
 
+**Live:** https://clearpad-giwa.vercel.app
+
 An Ammora bonding curve can sell out and still fail to graduate. On GIWA Sepolia, Config #6 sold its whole
 1,000,000,000-token supply on the curve but needed another 333,333,333 tokens for the graduated pool, so
 `migrate()` reverted with `MigrationNotReady` and buyers' WETH stayed in the curve. Ammora quarantined that Config
