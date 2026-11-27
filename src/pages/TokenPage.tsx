@@ -4,6 +4,7 @@ import type { IndexFile } from "../lib/indexTypes";
 import { curveForToken, loadLaunch, shortError, STATUS_LABEL, type LaunchView } from "../lib/launch";
 import { graduate, type Wallet } from "../lib/wallet";
 import { SwapBox } from "../components/SwapBox";
+import { routeFromView } from "../lib/trade";
 import { AddressLink, Avatar, CheckList, CurveChart, InventoryBars, Notice, Ring, TxLink, Verdict, fmt } from "../ui";
 
 type Props = { curveOrToken: string; wallet?: Wallet; onConnect: () => void; index?: IndexFile };
@@ -26,7 +27,7 @@ export const TokenPage = ({ curveOrToken, wallet, onConnect, index }: Props) => 
         const fromFactory = await curveForToken(curveOrToken);
         curve = fromFactory !== zeroAddress ? fromFactory : (curveOrToken as Address);
       }
-      setView(await loadLaunch(curve));
+      setView(await loadLaunch(curve, known ? { configId: known.configId, token: known.token } : undefined));
     } catch (e) {
       setError(shortError(e));
     }
@@ -37,13 +38,47 @@ export const TokenPage = ({ curveOrToken, wallet, onConnect, index }: Props) => 
   }, [load]);
 
   if (error) return <Notice kind="error">Could not read this launch: {error}</Notice>;
-  if (!view) return <p className="muted">Reading the curve, its Config and the graduation math from GIWA Sepolia…</p>;
+  if (!view) {
+    // Paint what the index already knows while the live reads finish.
+    const known = index?.launches.find(
+      (l) => l.curve.toLowerCase() === curveOrToken.toLowerCase() || l.token.toLowerCase() === curveOrToken.toLowerCase(),
+    );
+    return (
+      <div className="token" aria-busy="true">
+        <p className="crumbs">
+          <a href="#/">← All launches</a>
+        </p>
+        <section className="token-head">
+          <div className="token-id">
+            {known ? <Avatar seed={known.token} symbol={known.symbol} /> : <span className="avatar sk" />}
+            <div>
+              <h1>
+                {known?.symbol ?? <span className="sk sk-text" style={{ width: "6rem" }} />} <span>{known?.name}</span>
+              </h1>
+              <div className="meta">Reading the curve, its Config and the graduation math…</div>
+            </div>
+          </div>
+        </section>
+        <div className="cols">
+          <div>
+            <div className="sk sk-block" style={{ height: 76 }} />
+            <div className="sk sk-block" style={{ height: 300 }} />
+            <div className="sk sk-block" style={{ height: 220 }} />
+          </div>
+          <div>
+            <div className="sk sk-block" style={{ height: 420 }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const { state, token, quote, graduation, config } = view;
   const ok = graduation.verdict === "ready" && config.readiness.verdict !== "blocked";
   const n = graduation.numbers;
   const migrated = state.status === 3;
 
+  const preset = { route: routeFromView(view), meta: { symbol: token.symbol, name: token.name, decimals: token.decimals, token: state.baseToken } };
   const fmtTok = (v: bigint) => `${fmt(v, token.decimals)} ${token.symbol}`;
   const verdictTitle = migrated
     ? "Graduated"
@@ -175,7 +210,7 @@ export const TokenPage = ({ curveOrToken, wallet, onConnect, index }: Props) => 
             <GraduatePanel view={view} wallet={wallet} onConnect={onConnect} onDone={load} />
           ) : (
             <div className="sticky-col">
-              <SwapBox curve={view.curve} index={index} wallet={wallet} onConnect={onConnect} onDone={load} />
+              <SwapBox curve={view.curve} preset={preset} index={index} wallet={wallet} onConnect={onConnect} onDone={load} />
               {migrated && <p className="muted small center">Graduated: trades route through its Ammora pool.</p>}
             </div>
           )}

@@ -33,6 +33,17 @@ export const resolveRoute = async (curve: Address): Promise<Route> => {
   return { kind: "curve", curve, token: st.baseToken };
 };
 
+/** Builds the route from data the token page already loaded (no extra reads). */
+export const routeFromView = (v: { curve: Address; state: { status: number; canonicalPool: Address; baseToken: Address }; config: { snapshot: { config: { migrationMode: number } } } }): Route => {
+  const { status, canonicalPool, baseToken } = v.state;
+  if (status === 3) {
+    const model = Number(v.config.snapshot.config.migrationMode) === 1 ? "compounding" : "concentrated";
+    return { kind: "pool", pool: canonicalPool, model, token: baseToken, curve: v.curve };
+  }
+  if (status === 2) return { kind: "none", curve: v.curve, token: baseToken };
+  return { kind: "curve", curve: v.curve, token: baseToken };
+};
+
 let swapClient: Promise<AmmoraSwapClient> | undefined;
 const swaps = () =>
   (swapClient ??= AmmoraSwapClient.create(publicClient, {

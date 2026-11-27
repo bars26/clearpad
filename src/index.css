@@ -409,3 +409,10 @@ input::placeholder, textarea::placeholder { color: var(--dim); }
   .swap-page { grid-template-columns: 1fr; gap: 1.25rem; }
   .sticky-col { position: static; }
 }
+
+/* ---------- skeletons ---------- */
+.sk { display: inline-block; border-radius: 10px; background: linear-gradient(100deg, rgba(255,255,255,.04) 30%, rgba(255,255,255,.09) 50%, rgba(255,255,255,.04) 70%) 0 0 / 300% 100%; animation: shimmer 1.4s linear infinite; }
+.sk-block { display: block; width: 100%; border-radius: var(--radius); margin-bottom: 1rem; border: 1px solid var(--line); }
+.sk-text { height: 1.6rem; vertical-align: middle; }
+.avatar.sk { width: 64px; height: 64px; border-radius: 18px; }
+@keyframes shimmer { to { background-position: -150% 0; } }

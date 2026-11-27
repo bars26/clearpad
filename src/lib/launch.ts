@@ -125,7 +125,15 @@ export type LaunchView = {
   migrateSimulation?: { ok: boolean; error?: string };
 };
 
-export const curveClient = (curve: Address) => new AmmoraV4LaunchCurveClient(publicClient, curve, CORE);
+// One client per curve: it caches the curve's provenance proof, so repeat
+// state reads and quotes skip the authentication round trips.
+const curveClients = new Map<string, AmmoraV4LaunchCurveClient>();
+export const curveClient = (curve: Address) => {
+  const key = curve.toLowerCase();
+  let c = curveClients.get(key);
+  if (!c) curveClients.set(key, (c = new AmmoraV4LaunchCurveClient(publicClient, curve, CORE)));
+  return c;
+};
 
 export const curveForToken = (token: Address) =>
   publicClient.readContract({
@@ -135,13 +143,23 @@ export const curveForToken = (token: Address) =>
     args: [token],
   });
 
-export const loadLaunch = async (curve: Address): Promise<LaunchView> => {
+/**
+ * `hint` (from the index) lets the Config and token reads start alongside the
+ * curve state instead of after it; they are re-read if the curve disagrees.
+ */
+export const loadLaunch = async (curve: Address, hint?: { configId: number; token: string }): Promise<LaunchView> => {
   const block = await publicClient.getBlockNumber();
   const client = curveClient(curve);
+  const early = hint
+    ? Promise.all([loadConfig(BigInt(hint.configId), block), readToken(hint.token as Address)]).catch(() => undefined)
+    : undefined;
   const state = await client.getStateAtBlock(block);
+  const pre = await early;
+  const configOk = pre && pre[0].snapshot.configId === state.configId;
+  const tokenOk = pre && hint!.token.toLowerCase() === state.baseToken.toLowerCase();
   const [config, token, quote] = await Promise.all([
-    loadConfig(state.configId, block),
-    readToken(state.baseToken),
+    configOk ? pre[0] : loadConfig(state.configId, block),
+    tokenOk ? pre[1] : readToken(state.baseToken),
     readToken(state.quoteToken),
   ]);
   const threshold = state.migrationQuoteThreshold;

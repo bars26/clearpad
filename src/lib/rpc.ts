@@ -19,34 +19,41 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const isRateLimit = (error: unknown) => /\b429\b|rate limit|over rate/i.test(String((error as Error)?.message ?? error));
 
 /**
- * The public GIWA RPC counts every eth_call, and the SDK fans reads out with
- * Promise.all. Serialize requests with a minimum gap and back off on 429.
+ * The public GIWA RPC rate-limits floods but handles a few parallel calls well
+ * (8 concurrent ran without a 429 in testing). Allow `maxInFlight` requests at
+ * once and, on a 429, pause every new request with exponential backoff.
  * Only reads go through here: wallet writes use the user's own provider.
  */
-export const pacedHttp = (url = RPC_URL, intervalMs = 220): Transport => {
-  let tail: Promise<unknown> = Promise.resolve();
-  let nextStart = 0;
+export const pacedHttp = (url = RPC_URL, maxInFlight = 4): Transport => {
+  let inFlight = 0;
+  let pausedUntil = 0;
+  const waiters: (() => void)[] = [];
+  const acquire = async () => {
+    while (inFlight >= maxInFlight) await new Promise<void>((r) => waiters.push(r));
+    inFlight++;
+  };
+  const release = () => {
+    inFlight--;
+    waiters.shift()?.();
+  };
   return (parameters) => {
     const base = http(url, { retryCount: 0 })(parameters);
     return custom(
       {
-        request: (args) => {
-          const run = tail.then(async () => {
-            for (let attempt = 0; ; attempt++) {
-              await sleep(Math.max(0, nextStart - Date.now()));
-              try {
-                return await base.request(args);
-              } catch (error) {
-                if (!isRateLimit(error) || attempt >= 5) throw error;
-                nextStart = Date.now() + 1000 * 2 ** attempt;
-                continue;
-              } finally {
-                if (nextStart < Date.now() + intervalMs) nextStart = Date.now() + intervalMs;
-              }
+        request: async (args) => {
+          for (let attempt = 0; ; attempt++) {
+            await acquire();
+            try {
+              const wait = pausedUntil - Date.now();
+              if (wait > 0) await sleep(wait);
+              return await base.request(args);
+            } catch (error) {
+              if (!isRateLimit(error) || attempt >= 5) throw error;
+              pausedUntil = Math.max(pausedUntil, Date.now() + 750 * 2 ** attempt);
+            } finally {
+              release();
             }
-          });
-          tail = run.catch(() => undefined);
-          return run;
+          }
         },
       },
       { retryCount: 0 },

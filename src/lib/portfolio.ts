@@ -37,53 +37,61 @@ const chunk = <T>(xs: T[], n: number) => Array.from({ length: Math.ceil(xs.lengt
 
 /** Launches created after the static index was built, read straight from the factory. */
 export const recentLaunches = async (index: IndexFile, head: bigint): Promise<IndexedLaunch[]> => {
-  const out: IndexedLaunch[] = [];
+  const ranges: [bigint, bigint][] = [];
   for (let from = BigInt(index.scannedTo) + 1n; from <= head; from += 7_500n) {
-    const to = from + 7_499n > head ? head : from + 7_499n;
-    const logs = await publicClient.getLogs({ address: deployment.contracts.launch.factory, event: launchCreated, fromBlock: from, toBlock: to });
-    for (const l of logs) {
-      out.push({
-        token: l.args.token!,
-        curve: l.args.curve!,
-        creator: l.args.creator!,
-        configId: Number(l.args.configId!),
-        block: Number(l.blockNumber),
-        metadataURI: l.args.metadataURI!,
-        name: "",
-        symbol: "",
-        status: 1,
-        baseReserve: "0",
-        quoteReserve: "0",
-        threshold: "0",
-      });
-    }
+    ranges.push([from, from + 7_499n > head ? head : from + 7_499n]);
   }
-  return out;
+  // The transport caps parallelism, so issuing every range at once is safe.
+  const pages = await Promise.all(
+    ranges.map(([fromBlock, toBlock]) =>
+      publicClient.getLogs({ address: deployment.contracts.launch.factory, event: launchCreated, fromBlock, toBlock }),
+    ),
+  );
+  return pages.flat().map((l) => ({
+    token: l.args.token!,
+    curve: l.args.curve!,
+    creator: l.args.creator!,
+    configId: Number(l.args.configId!),
+    block: Number(l.blockNumber),
+    metadataURI: l.args.metadataURI!,
+    name: "",
+    symbol: "",
+    status: 1,
+    baseReserve: "0",
+    quoteReserve: "0",
+    threshold: "0",
+  }));
 };
 
 export const loadPortfolio = async (owner: Address, index: IndexFile): Promise<Portfolio> => {
   const head = await publicClient.getBlockNumber();
+  const balancesP = Promise.all([
+    publicClient.getBalance({ address: owner, blockNumber: head }),
+    publicClient.readContract({ address: WETH, abi: erc20Abi, functionName: "balanceOf", args: [owner], blockNumber: head }),
+  ]);
   const fresh = await recentLaunches(index, head).catch(() => []);
   const known = new Set(index.launches.map((l) => l.token.toLowerCase()));
   const all = [...index.launches, ...fresh.filter((l) => !known.has(l.token.toLowerCase()))];
 
-  const [eth, weth] = await Promise.all([
-    publicClient.getBalance({ address: owner, blockNumber: head }),
-    publicClient.readContract({ address: WETH, abi: erc20Abi, functionName: "balanceOf", args: [owner], blockNumber: head }),
-  ]);
+  const [eth, weth] = await balancesP;
 
   // Balances for every launch token, 150 per Multicall3 request.
   const held: { launch: IndexedLaunch; balance: bigint }[] = [];
-  for (const group of chunk(all, 150)) {
-    const res = await publicClient.multicall({
-      contracts: group.map((l) => ({ address: l.token as Address, abi: erc20Abi, functionName: "balanceOf" as const, args: [owner] })),
-      blockNumber: head,
-    });
+  const groups = chunk(all, 150);
+  const results = await Promise.all(
+    groups.map((group) =>
+      publicClient.multicall({
+        contracts: group.map((l) => ({ address: l.token as Address, abi: erc20Abi, functionName: "balanceOf" as const, args: [owner] })),
+        blockNumber: head,
+      }),
+    ),
+  );
+  groups.forEach((group, g) =>
     group.forEach((l, i) => {
-      const b = res[i]?.result;
+      const b = results[g]![i]?.result;
       if (typeof b === "bigint" && b > 0n) held.push({ launch: l, balance: b });
-    });
-  }
+    }),
+  );
 
   // Price, status and metadata only for what the wallet holds or created.
   const created = all.filter((l) => l.creator.toLowerCase() === owner.toLowerCase());

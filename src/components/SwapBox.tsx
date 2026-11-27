@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { erc20Abi, formatUnits, parseUnits, type Address } from "viem";
 import type { IndexFile, IndexedLaunch } from "../lib/indexTypes";
 import { publicClient } from "../lib/rpc";
@@ -13,6 +13,8 @@ type Props = {
   index?: IndexFile;
   /** Lock the box to one launch (token page). */
   curve?: Address;
+  /** Route and token metadata the caller already has (skips re-reading them). */
+  preset?: { route: Route; meta: TokenMeta };
   /** Pre-selected token for a free (unlocked) box. */
   initialCurve?: Address;
   /** Extra launches not in the static index (newer than its build). */
@@ -20,11 +22,11 @@ type Props = {
   onDone?: () => void;
 };
 
-type TokenMeta = { symbol: string; name: string; decimals: number; token: Address };
+export type TokenMeta = { symbol: string; name: string; decimals: number; token: Address };
 
 const WETH_META: TokenMeta = { symbol: "WETH", name: "Wrapped Ether", decimals: 18, token: WETH };
 
-export const SwapBox = ({ wallet, onConnect, index, curve: fixedCurve, initialCurve, extra = [], onDone }: Props) => {
+export const SwapBox = ({ wallet, onConnect, index, curve: fixedCurve, initialCurve, preset, extra = [], onDone }: Props) => {
   const [curve, setCurve] = useState<Address | undefined>(fixedCurve ?? initialCurve);
   const [sell, setSell] = useState(false);
   const [amount, setAmount] = useState("0.0002");
@@ -49,7 +51,16 @@ export const SwapBox = ({ wallet, onConnect, index, curve: fixedCurve, initialCu
   }, [fixedCurve]);
 
   // Resolve the venue and token metadata whenever the token changes.
+  const presetKey = preset ? `${preset.route.kind}:${preset.route.curve}:${preset.route.kind === "pool" ? preset.route.pool : ""}` : "";
+  const presetRef = useRef(preset);
+  presetRef.current = preset;
   useEffect(() => {
+    const preset = presetRef.current;
+    if (preset && curve && preset.route.curve.toLowerCase() === curve.toLowerCase()) {
+      setRoute(preset.route);
+      setMeta(preset.meta);
+      return;
+    }
     setRoute(undefined);
     setMeta(undefined);
     if (!curve) return;
@@ -70,7 +81,7 @@ export const SwapBox = ({ wallet, onConnect, index, curve: fixedCurve, initialCu
     return () => {
       live = false;
     };
-  }, [curve]);
+  }, [curve, presetKey]);
 
   const tokenIn = sell ? meta : WETH_META;
   const tokenOut = sell ? WETH_META : meta;
@@ -101,7 +112,7 @@ export const SwapBox = ({ wallet, onConnect, index, curve: fixedCurve, initialCu
         (r) => live && setQ(r),
         (e) => live && setQErr(shortError(e)),
       );
-    }, 350);
+    }, 200);
     return () => {
       live = false;
       clearTimeout(t);
