@@ -29,5 +29,5 @@ jobs:
           git config user.name "clearpad-indexer"
           git config user.email "clearpad-indexer@users.noreply.github.com"
           git add public/index.json
-          git diff --cached --quiet || git commit -m "chore: refresh launch index [skip ci]"
+          git diff --cached --quiet || git commit -m "chore: refresh launch index"
           git push
