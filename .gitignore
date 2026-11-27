@@ -27,3 +27,4 @@ dist-ssr
 .env*
 SUBMISSION.md
 .vercel
+x-post/

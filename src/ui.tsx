@@ -230,7 +230,7 @@ export const CountUp = ({ value, ms = 900 }: { value: number; ms?: number }) => 
     const t0 = performance.now();
     let raf = 0;
     const tick = (now: number) => {
-      const p = Math.min(1, (now - t0) / ms);
+      const p = Math.max(0, Math.min(1, (now - t0) / ms));
       setN(Math.round(value * (1 - Math.pow(1 - p, 3))));
       if (p < 1) raf = requestAnimationFrame(tick);
     };
