@@ -67,6 +67,7 @@ export const Audit = ({ index }: { index?: IndexFile }) => {
         </section>
       )}
 
+      <div className="table-wrap">
       <table className="table">
         <thead>
           <tr>
@@ -97,6 +98,7 @@ export const Audit = ({ index }: { index?: IndexFile }) => {
           ))}
         </tbody>
       </table>
+      </div>
     </>
   );
 };

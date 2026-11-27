@@ -3,7 +3,7 @@ import { isAddress, parseUnits, zeroAddress, type Address } from "viem";
 import type { IndexFile } from "../lib/indexTypes";
 import { curveForToken, loadLaunch, shortError, STATUS_LABEL, type LaunchView } from "../lib/launch";
 import { balances, graduate, quoteTrade, trade, wrapEth, type TradeQuote, type Wallet } from "../lib/wallet";
-import { AddressLink, CheckList, Notice, Progress, TxLink, Verdict, fmt } from "../ui";
+import { AddressLink, Avatar, CheckList, CurveChart, InventoryBars, Notice, Ring, TxLink, Verdict, fmt } from "../ui";
 
 type Props = { curveOrToken: string; wallet?: Wallet; onConnect: () => void; index?: IndexFile };
 
@@ -43,41 +43,86 @@ export const TokenPage = ({ curveOrToken, wallet, onConnect, index }: Props) => 
   const n = graduation.numbers;
   const migrated = state.status === 3;
 
+  const fmtTok = (v: bigint) => `${fmt(v, token.decimals)} ${token.symbol}`;
+  const verdictTitle = migrated
+    ? "Graduated"
+    : ok
+      ? "This launch can graduate"
+      : "This launch can never graduate";
+  const verdictText = migrated
+    ? "The curve sold out and migrate() moved its liquidity into an Ammora pool."
+    : ok
+      ? "When the curve sells out, there are enough tokens and WETH left to seed the pool."
+      : `After a sell-out the pool would be ${fmtTok(n.baseShortfall)} short, so migrate() reverts and buyers' WETH stays in the curve.`;
+
   return (
     <div className="token">
+      <p className="crumbs">
+        <a href="#/">← All launches</a>
+      </p>
       <section className="token-head">
-        <div>
-          <p className="muted small">
-            <a href="#/">← Launches</a>
-          </p>
-          <h1>
-            {token.symbol} <span className="muted">{token.name}</span>
-          </h1>
-          <p className="muted">
-            Token <AddressLink address={state.baseToken} /> · Curve <AddressLink address={view.curve} /> · Creator{" "}
-            <AddressLink address={state.creator} /> · <a href={`#/audit/${state.configId}`}>Config #{String(state.configId)}</a>
-          </p>
+        <div className="token-id">
+          <Avatar seed={state.baseToken} symbol={token.symbol} />
+          <div>
+            <h1>
+              {token.symbol} <span>{token.name}</span>
+            </h1>
+            <div className="meta">
+              <span>
+                Token <AddressLink address={state.baseToken} />
+              </span>
+              <span>
+                Curve <AddressLink address={view.curve} />
+              </span>
+              <span>
+                Creator <AddressLink address={state.creator} />
+              </span>
+              <a href={`#/audit/${state.configId}`}>Config #{String(state.configId)}</a>
+            </div>
+          </div>
         </div>
         {migrated ? <Verdict ok>Graduated</Verdict> : <Verdict ok={ok} />}
       </section>
 
       <div className="cols">
         <div>
-          <section className="panel">
-            <h2>Curve</h2>
-            <Progress bps={view.progressBps} />
+          <div className={`big-verdict ${ok || migrated ? "ok" : "bad"}`}>
+            <span className="bv-icon">{ok || migrated ? "✓" : "✕"}</span>
+            <div>
+              <strong>{verdictTitle}</strong>
+              <span>{verdictText}</span>
+            </div>
+          </div>
+
+          <section className="panel glow">
+            <h2>Bonding curve</h2>
+            <div className="curve-wrap">
+              <Ring
+                bps={view.progressBps}
+                size={112}
+                stroke={9}
+                tone={migrated ? "done" : ok ? "aurora" : "bad"}
+                label={
+                  <span style={{ textAlign: "center", lineHeight: 1.1 }}>
+                    <span style={{ fontSize: "1.25rem" }}>{(view.progressBps / 100).toFixed(view.progressBps < 1000 ? 1 : 0)}%</span>
+                    <br />
+                    <span className="muted" style={{ fontSize: ".68rem", fontWeight: 600 }}>
+                      to target
+                    </span>
+                  </span>
+                }
+              />
+              <CurveChart bps={view.progressBps} blocked={!ok && !migrated} done={migrated} />
+            </div>
             <dl className="kv">
               <dt>Status</dt>
               <dd>{STATUS_LABEL[state.status] ?? state.status}</dd>
               <dt>Raised</dt>
               <dd>
-                {fmt(state.quoteReserve, quote.decimals)} / {fmt(state.migrationQuoteThreshold, quote.decimals)} {quote.symbol} (
-                {(view.progressBps / 100).toFixed(2)}%)
+                {fmt(state.quoteReserve, quote.decimals)} / {fmt(state.migrationQuoteThreshold, quote.decimals)} {quote.symbol}
               </dd>
               <dt>Tokens in curve</dt>
-              <dd>
-                {fmt(state.baseReserve, token.decimals)} {token.symbol}
-              </dd>
+              <dd>{fmtTok(state.baseReserve)}</dd>
               <dt>Current fee</dt>
               <dd>{(state.currentFeeBps / 100).toFixed(2)}%</dd>
               {migrated && (
@@ -94,29 +139,18 @@ export const TokenPage = ({ curveOrToken, wallet, onConnect, index }: Props) => 
           {!migrated && (
             <section className="panel">
               <h2>Graduation check</h2>
-              <p className="muted">
+              <p className="muted small">
                 Replays <code>migrate()</code> from this curve's live reserves, assuming the rest of the curve sells out.
               </p>
+              <InventoryBars left={n.baseLeftAfterSale} need={n.baseForMigration + n.lockedBase} label={(v) => (v > 0n && v < 10n ** BigInt(token.decimals) ? "< 1" : fmt(v, token.decimals))} />
               <CheckList checks={graduation.checks} />
               <dl className="kv">
                 <dt>Still sellable on the curve</dt>
-                <dd>
-                  {fmt(n.curveSold, token.decimals)} {token.symbol}
-                </dd>
-                <dt>Left after sell-out</dt>
-                <dd>
-                  {fmt(n.baseLeftAfterSale, token.decimals)} {token.symbol}
-                </dd>
-                <dt>Needed for pool + locks</dt>
-                <dd>
-                  {fmt(n.baseForMigration + n.lockedBase, token.decimals)} {token.symbol}
-                </dd>
+                <dd>{fmtTok(n.curveSold)}</dd>
                 {n.baseShortfall > 0n && (
                   <>
                     <dt>Shortfall</dt>
-                    <dd className="bad-text">
-                      {fmt(n.baseShortfall, token.decimals)} {token.symbol}
-                    </dd>
+                    <dd className="bad-text">{fmtTok(n.baseShortfall)}</dd>
                   </>
                 )}
               </dl>
@@ -130,7 +164,7 @@ export const TokenPage = ({ curveOrToken, wallet, onConnect, index }: Props) => 
           )}
 
           <section className="panel">
-            <h2>Policy</h2>
+            <h2>Launch policy</h2>
             <CheckList checks={config.flags} />
           </section>
         </div>
@@ -234,7 +268,7 @@ const TradePanel = ({
   const needsAck = !safe && side === "buy";
 
   return (
-    <section className="panel sticky">
+    <section className="panel sticky glow">
       <h2>Trade on the curve</h2>
       <div className="segmented full">
         <button className={side === "buy" ? "on" : ""} onClick={() => setSide("buy")}>
@@ -295,7 +329,7 @@ const TradePanel = ({
           <span>I understand this launch cannot graduate and my {quote.symbol} may stay locked in the curve.</span>
         </label>
       )}
-      <button className="btn primary full" disabled={!!step || !q || (needsAck && !ack)} onClick={go}>
+      <button className="btn primary full" disabled={!!step || (!!wallet && (!q || (needsAck && !ack)))} onClick={go}>
         {step ?? (wallet ? (side === "buy" ? "Buy" : "Sell") : "Connect wallet")}
       </button>
       {side === "buy" && bal && bal.weth === 0n && (
@@ -344,7 +378,7 @@ const GraduatePanel = ({
     }
   };
   return (
-    <section className="panel sticky">
+    <section className="panel sticky glow">
       <h2>Graduation</h2>
       {ok ? (
         <>

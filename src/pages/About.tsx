@@ -1,6 +1,9 @@
 export const About = () => (
   <article className="prose">
-    <h1>How Clearpad checks graduation</h1>
+    <span className="eyebrow">How it works</span>
+    <h1 style={{ marginTop: "1rem" }}>
+      How Clearpad checks <span className="grad-text">graduation</span>
+    </h1>
     <p>
       An Ammora V4 launch sells tokens on a bonding curve. When the curve raises its target, it becomes{" "}
       <em>ReadyToMigrate</em> and anyone can call <code>migrate()</code> to move the raised WETH and the remaining tokens
@@ -17,7 +20,7 @@ export const About = () => (
       Clearpad mirrors the verified <code>ALCSegmentedPoolV4.migrate()</code> source in integer math, with the same
       rounding:
     </p>
-    <ol>
+    <ol className="steps">
       <li>
         <strong>Target reachable.</strong> The whole curve can absorb at least the quote target.
       </li>

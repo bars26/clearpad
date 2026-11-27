@@ -3,6 +3,7 @@ import type { IndexFile } from "./lib/indexTypes";
 import { connectWallet, type Wallet } from "./lib/wallet";
 import { shortError } from "./lib/launch";
 import { short } from "./ui";
+import { Wordmark } from "./Logo";
 import { Feed } from "./pages/Feed";
 import { TokenPage } from "./pages/TokenPage";
 import { Create } from "./pages/Create";
@@ -55,11 +56,8 @@ export default function App() {
   return (
     <>
       <header className="top">
-        <a href="#/" className="brand">
-          <span className="logo" aria-hidden>
-            ◎
-          </span>{" "}
-          Clearpad
+        <a href="#/" className="brand" aria-label="Clearpad home">
+          <Wordmark />
         </a>
         <nav>
           {nav("/", "Launches")}
@@ -68,11 +66,16 @@ export default function App() {
           {nav("/about", "How it works")}
         </nav>
         <div className="wallet">
+          <span className="net" title="GIWA Sepolia testnet, chain 91342">
+            <i /> GIWA Sepolia
+          </span>
           {wallet ? (
-            <span className="pill mono">{short(wallet.address)}</span>
+            <span className="pill mono">
+              <i /> {short(wallet.address)}
+            </span>
           ) : (
-            <button className="btn" onClick={connect}>
-              Connect wallet
+            <button className="btn primary" onClick={connect}>
+              Connect
             </button>
           )}
         </div>
@@ -92,8 +95,11 @@ export default function App() {
         )}
       </main>
       <footer>
+        <div>
+          <Wordmark />
+        </div>
         Built with <a href="https://www.npmjs.com/package/@ammora-protocol/sdk">@ammora-protocol/sdk</a> on GIWA
-        Sepolia testnet. Test assets only, not audited. · <a href="https://github.com/bars26/clearpad">Source</a>
+        Sepolia testnet · Test assets only, not audited · <a href="https://github.com/bars26/clearpad">Source</a>
       </footer>
     </>
   );

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { IndexFile } from "../lib/indexTypes";
 import { loadConfig, shortError, type ConfigView } from "../lib/launch";
 import { WETH, createLaunch, type Wallet } from "../lib/wallet";
-import { CheckList, Notice, TxLink, Verdict, fmt } from "../ui";
+import { Avatar, CheckList, Notice, TxLink, Verdict, fmt } from "../ui";
 
 const toBase64 = (s: string) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
 
@@ -66,7 +66,10 @@ export const Create = ({ index, wallet, onConnect }: { index?: IndexFile; wallet
   return (
     <div className="cols create">
       <div>
-        <h1>Create a token</h1>
+        <span className="eyebrow">New launch</span>
+        <h1 style={{ marginTop: "1rem" }}>
+          Create a token that <span className="grad-text">clears the bar</span>
+        </h1>
         <p className="muted">
           Pick a Config, name your token, sign once. Before the wallet prompt, Clearpad re-reads the Config at the current
           block, replays the graduation math and simulates the create call. If any check fails, no signature is requested.
@@ -104,7 +107,15 @@ export const Create = ({ index, wallet, onConnect }: { index?: IndexFile; wallet
       </div>
 
       <div>
-        <section className="panel sticky">
+        <section className="panel sticky glow">
+          <div className="preview">
+            <Avatar seed={`${name}${symbol}`} symbol={symbol || "?"} />
+            <div>
+              <strong>{symbol || "SYMBOL"}</strong>
+              <span>{name || "Your token name"}</span>
+            </div>
+            {view && <Verdict ok={ready}>{ready ? "Ready" : "Blocked"}</Verdict>}
+          </div>
           <h2>2. Token</h2>
           <label className="field">
             <span>Name</span>
