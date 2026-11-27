@@ -3,6 +3,7 @@ import {
   custom,
   encodeFunctionData,
   erc20Abi,
+  formatEther,
   type Abi,
   numberToHex,
   parseAbi,
@@ -149,6 +150,20 @@ export const trade = async (
     deadline: BigInt(Math.floor(Date.now() / 1000) + 600),
   });
   const need = plan.approvalRequirement;
+
+  // The curve pulls the input token with transferFrom; a missing balance only
+  // surfaces as an opaque revert, so check it first and explain.
+  const held = await publicClient.readContract({ address: need.token, abi: erc20Abi, functionName: "balanceOf", args: [w.address] });
+  if (held < amountIn) {
+    if (sell) throw new Error("You don't hold that many tokens. Lower the amount.");
+    if (need.token.toLowerCase() !== WETH.toLowerCase()) throw new Error("Not enough of the quote token for this buy.");
+    const shortfall = amountIn - held;
+    const eth = await publicClient.getBalance({ address: w.address });
+    if (eth <= shortfall) throw new Error("Not enough ETH to wrap into WETH for this buy (keep a little ETH for gas).");
+    onStep(`Wrap ${formatEther(shortfall)} ETH → WETH in your wallet`);
+    await wrapEth(w, shortfall);
+  }
+
   const allowance = await publicClient.readContract({ address: need.token, abi: erc20Abi, functionName: "allowance", args: [w.address, need.spender] });
   if (allowance < need.amount) {
     onStep("Approve the exact amount in your wallet");

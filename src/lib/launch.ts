@@ -182,6 +182,9 @@ export const shortError = (error: unknown) => {
   }
   const e = error as { shortMessage?: string; message?: string; details?: string };
   const text = [e?.shortMessage, e?.details, e?.message].filter(Boolean).join("\n") || String(error);
+  if (/reverted for an unknown reason/i.test(text)) {
+    return "The contract rejected this transaction in simulation, so nothing was sent. Check your balance and try a smaller amount.";
+  }
   const known = KNOWN.exec(text);
   return known ? known[0] : (e?.shortMessage ?? text).split("\n")[0]!.slice(0, 180);
 };

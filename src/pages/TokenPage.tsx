@@ -332,11 +332,12 @@ const TradePanel = ({
       <button className="btn primary full" disabled={!!step || (!!wallet && (!q || (needsAck && !ack)))} onClick={go}>
         {step ?? (wallet ? (side === "buy" ? "Buy" : "Sell") : "Connect wallet")}
       </button>
-      {side === "buy" && bal && bal.weth === 0n && (
+      {side === "buy" && bal && (
         <p className="muted small">
-          Buys are paid in WETH. You have {fmt(bal.eth, 18)} ETH.{" "}
+          Buys are paid in WETH. You have {fmt(bal.weth, 18)} WETH and {fmt(bal.eth, 18)} ETH
+          {bal.weth === 0n ? "; any missing WETH is wrapped from ETH first (one extra confirmation)." : "."}{" "}
           <button className="link" onClick={wrap} disabled={!!step}>
-            Wrap {amount} ETH
+            Wrap {amount} ETH now
           </button>
         </p>
       )}
