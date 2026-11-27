@@ -40,6 +40,27 @@ export const connectWallet = async (): Promise<Wallet> => {
   return { address, client: createWalletClient({ account: address, chain: giwaSepolia, transport: custom(provider) }) };
 };
 
+/**
+ * Reconnects silently on page load if the wallet already granted this site
+ * access (eth_accounts never opens a prompt). Returns undefined otherwise.
+ */
+export const restoreWallet = async (): Promise<Wallet | undefined> => {
+  const provider = window.ethereum;
+  if (!provider) return undefined;
+  const [address] = ((await provider.request({ method: "eth_accounts" })) as Address[]) ?? [];
+  if (!address) return undefined;
+  return { address, client: createWalletClient({ account: address, chain: giwaSepolia, transport: custom(provider) }) };
+};
+
+/** Calls back with the new wallet (or undefined) whenever the account changes. */
+export const onAccountsChanged = (cb: (w: Wallet | undefined) => void) => {
+  const provider = window.ethereum as (EIP1193Provider & { removeListener?: (e: string, f: () => void) => void }) | undefined;
+  if (!provider?.on) return () => {};
+  const handler = () => void restoreWallet().then(cb, () => cb(undefined));
+  provider.on("accountsChanged", handler);
+  return () => provider.removeListener?.("accountsChanged", handler);
+};
+
 const ensureChain = async (provider: EIP1193Provider) => {
   const chainId = numberToHex(giwaSepolia.id);
   try {
@@ -64,6 +85,8 @@ const ensureChain = async (provider: EIP1193Provider) => {
 const send = async (w: Wallet, tx: { to: Address; data?: `0x${string}`; value?: bigint }) => {
   // Simulate first: a revert is shown to the user instead of a wallet prompt.
   await publicClient.call({ account: w.address, to: tx.to, data: tx.data, value: tx.value });
+  // A silently restored wallet may sit on another network; switch before signing.
+  if (window.ethereum) await ensureChain(window.ethereum);
   const hash = await w.client.sendTransaction({ account: w.address, chain: giwaSepolia, to: tx.to, data: tx.data, value: tx.value });
   const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 2_000, timeout: 180_000 });
   if (receipt.status !== "success") throw new Error(`Transaction reverted: ${hash}`);

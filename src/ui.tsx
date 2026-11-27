@@ -80,7 +80,7 @@ export const Ring = ({
   const pct = Math.max(0, Math.min(1, bps / 10_000));
   const gid = `ring-${tone}`;
   return (
-    <div className="ring" style={{ width: size, height: size }}>
+    <div className={`ring ring-${tone}`} style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
         <defs>
           <linearGradient id="ring-aurora" x1="0" y1="1" x2="1" y2="0">

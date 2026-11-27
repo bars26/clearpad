@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { IndexFile } from "./lib/indexTypes";
-import { connectWallet, type Wallet } from "./lib/wallet";
+import { connectWallet, onAccountsChanged, restoreWallet, type Wallet } from "./lib/wallet";
 import { shortError } from "./lib/launch";
 import { short } from "./ui";
 import { Wordmark } from "./Logo";
@@ -9,6 +9,7 @@ import { TokenPage } from "./pages/TokenPage";
 import { Create } from "./pages/Create";
 import { Audit } from "./pages/Audit";
 import { About } from "./pages/About";
+import { Portfolio } from "./pages/Portfolio";
 
 const useHash = () => {
   const [hash, setHash] = useState(() => window.location.hash.slice(1) || "/");
@@ -37,6 +38,11 @@ export default function App() {
       .catch((e) => setIndexError(String(e.message ?? e)));
   }, []);
 
+  useEffect(() => {
+    void restoreWallet().then((w) => w && setWallet(w), () => undefined);
+    return onAccountsChanged(setWallet);
+  }, []);
+
   const connect = async () => {
     setWalletError(undefined);
     try {
@@ -62,6 +68,7 @@ export default function App() {
         <nav>
           {nav("/", "Launches")}
           {nav("/create", "Create")}
+          {nav("/portfolio", "Portfolio")}
           {nav("/audit", "Config audit")}
           {nav("/about", "How it works")}
         </nav>
@@ -70,9 +77,9 @@ export default function App() {
             <i /> GIWA Sepolia
           </span>
           {wallet ? (
-            <span className="pill mono">
+            <a className="pill mono" href="#/portfolio" title="Your portfolio">
               <i /> {short(wallet.address)}
-            </span>
+            </a>
           ) : (
             <button className="btn primary" onClick={connect}>
               Connect
@@ -88,6 +95,8 @@ export default function App() {
           <Create index={index} wallet={wallet} onConnect={connect} />
         ) : path === "audit" ? (
           <Audit index={index} />
+        ) : path === "portfolio" ? (
+          <Portfolio key={arg ?? "me"} index={index} wallet={wallet} onConnect={connect} address={arg} />
         ) : path === "about" ? (
           <About />
         ) : (
