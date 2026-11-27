@@ -36,7 +36,7 @@ export type Portfolio = {
 const chunk = <T>(xs: T[], n: number) => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
 
 /** Launches created after the static index was built, read straight from the factory. */
-const recentLaunches = async (index: IndexFile, head: bigint): Promise<IndexedLaunch[]> => {
+export const recentLaunches = async (index: IndexFile, head: bigint): Promise<IndexedLaunch[]> => {
   const out: IndexedLaunch[] = [];
   for (let from = BigInt(index.scannedTo) + 1n; from <= head; from += 7_500n) {
     const to = from + 7_499n > head ? head : from + 7_499n;

@@ -82,7 +82,7 @@ const ensureChain = async (provider: EIP1193Provider) => {
   }
 };
 
-const send = async (w: Wallet, tx: { to: Address; data?: `0x${string}`; value?: bigint }) => {
+export const send = async (w: Wallet, tx: { to: Address; data?: `0x${string}`; value?: bigint }) => {
   // Simulate first: a revert is shown to the user instead of a wallet prompt.
   await publicClient.call({ account: w.address, to: tx.to, data: tx.data, value: tx.value });
   // A silently restored wallet may sit on another network; switch before signing.
@@ -105,7 +105,7 @@ export const balances = async (owner: Address, token?: Address) => {
 export const wrapEth = (w: Wallet, amount: bigint) =>
   send(w, { to: WETH, data: encode(wethAbi, "deposit", []), value: amount });
 
-const encode = (abi: Abi, functionName: string, args: readonly unknown[]) =>
+export const encode = (abi: Abi, functionName: string, args: readonly unknown[]) =>
   encodeFunctionData({ abi, functionName, args } as never);
 
 export type CreateInput = { configId: bigint; name: string; symbol: string; metadataURI: string };

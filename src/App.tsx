@@ -10,6 +10,7 @@ import { Create } from "./pages/Create";
 import { Audit } from "./pages/Audit";
 import { About } from "./pages/About";
 import { Portfolio } from "./pages/Portfolio";
+import { Swap } from "./pages/Swap";
 
 const useHash = () => {
   const [hash, setHash] = useState(() => window.location.hash.slice(1) || "/");
@@ -67,6 +68,7 @@ export default function App() {
         </a>
         <nav>
           {nav("/", "Launches")}
+          {nav("/swap", "Swap")}
           {nav("/create", "Create")}
           {nav("/portfolio", "Portfolio")}
           {nav("/audit", "Config audit")}
@@ -95,6 +97,8 @@ export default function App() {
           <Create index={index} wallet={wallet} onConnect={connect} />
         ) : path === "audit" ? (
           <Audit index={index} />
+        ) : path === "swap" ? (
+          <Swap index={index} wallet={wallet} onConnect={connect} curve={arg} />
         ) : path === "portfolio" ? (
           <Portfolio key={arg ?? "me"} index={index} wallet={wallet} onConnect={connect} address={arg} />
         ) : path === "about" ? (

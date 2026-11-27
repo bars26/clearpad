@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isAddress, parseUnits, zeroAddress, type Address } from "viem";
+import { isAddress, zeroAddress, type Address } from "viem";
 import type { IndexFile } from "../lib/indexTypes";
 import { curveForToken, loadLaunch, shortError, STATUS_LABEL, type LaunchView } from "../lib/launch";
-import { balances, graduate, quoteTrade, trade, wrapEth, type TradeQuote, type Wallet } from "../lib/wallet";
+import { graduate, type Wallet } from "../lib/wallet";
+import { SwapBox } from "../components/SwapBox";
 import { AddressLink, Avatar, CheckList, CurveChart, InventoryBars, Notice, Ring, TxLink, Verdict, fmt } from "../ui";
 
 type Props = { curveOrToken: string; wallet?: Wallet; onConnect: () => void; index?: IndexFile };
@@ -170,184 +171,17 @@ export const TokenPage = ({ curveOrToken, wallet, onConnect, index }: Props) => 
         </div>
 
         <div>
-          {state.status === 1 || state.status === 0 || state.status === 4 ? (
-            <TradePanel view={view} wallet={wallet} onConnect={onConnect} onDone={load} safe={ok} />
-          ) : state.status === 2 ? (
+          {state.status === 2 ? (
             <GraduatePanel view={view} wallet={wallet} onConnect={onConnect} onDone={load} />
           ) : (
-            <section className="panel">
-              <h2>Trade</h2>
-              <p className="muted">This launch has graduated. It now trades in its Ammora pool.</p>
-            </section>
+            <div className="sticky-col">
+              <SwapBox curve={view.curve} index={index} wallet={wallet} onConnect={onConnect} onDone={load} />
+              {migrated && <p className="muted small center">Graduated: trades route through its Ammora pool.</p>}
+            </div>
           )}
         </div>
       </div>
     </div>
-  );
-};
-
-const TradePanel = ({
-  view,
-  wallet,
-  onConnect,
-  onDone,
-  safe,
-}: {
-  view: LaunchView;
-  wallet?: Wallet;
-  onConnect: () => void;
-  onDone: () => void;
-  safe: boolean;
-}) => {
-  const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [amount, setAmount] = useState("0.001");
-  const [slippage, setSlippage] = useState(100);
-  const [q, setQ] = useState<TradeQuote>();
-  const [qErr, setQErr] = useState<string>();
-  const [bal, setBal] = useState<{ eth: bigint; weth: bigint; base: bigint }>();
-  const [step, setStep] = useState<string>();
-  const [done, setDone] = useState<string>();
-  const [err, setErr] = useState<string>();
-  const [ack, setAck] = useState(false);
-  const { token, quote, curve, state } = view;
-  const inDecimals = side === "buy" ? quote.decimals : token.decimals;
-
-  useEffect(() => {
-    if (wallet) void balances(wallet.address, state.baseToken).then(setBal);
-  }, [wallet, state.baseToken, done]);
-
-  useEffect(() => {
-    setQ(undefined);
-    setQErr(undefined);
-    let raw: bigint;
-    try {
-      raw = parseUnits(amount || "0", inDecimals);
-    } catch {
-      setQErr("Enter a number");
-      return;
-    }
-    if (raw === 0n) return;
-    const t = setTimeout(() => {
-      quoteTrade(curve, raw, side === "sell").then(setQ, (e) => setQErr(shortError(e)));
-    }, 350);
-    return () => clearTimeout(t);
-  }, [amount, side, curve, inDecimals]);
-
-  const go = async () => {
-    if (!wallet) return onConnect();
-    setErr(undefined);
-    setDone(undefined);
-    try {
-      const raw = parseUnits(amount, inDecimals);
-      const hash = await trade(wallet, curve, raw, side === "sell", slippage, setStep);
-      setDone(hash);
-      onDone();
-    } catch (e) {
-      setErr(shortError(e));
-    } finally {
-      setStep(undefined);
-    }
-  };
-
-  const wrap = async () => {
-    if (!wallet) return onConnect();
-    setErr(undefined);
-    try {
-      setStep("Wrap ETH in your wallet");
-      const { hash } = await wrapEth(wallet, parseUnits(amount, 18));
-      setDone(hash);
-    } catch (e) {
-      setErr(shortError(e));
-    } finally {
-      setStep(undefined);
-    }
-  };
-
-  const outSymbol = side === "buy" ? token.symbol : quote.symbol;
-  const outDecimals = side === "buy" ? token.decimals : quote.decimals;
-  const needsAck = !safe && side === "buy";
-
-  return (
-    <section className="panel sticky glow">
-      <h2>Trade on the curve</h2>
-      <div className="segmented full">
-        <button className={side === "buy" ? "on" : ""} onClick={() => setSide("buy")}>
-          Buy
-        </button>
-        <button className={side === "sell" ? "on" : ""} onClick={() => setSide("sell")}>
-          Sell
-        </button>
-      </div>
-      <label className="field">
-        <span>
-          You pay ({side === "buy" ? quote.symbol : token.symbol})
-          {bal && (
-            <button
-              className="link"
-              onClick={() => setAmount((Number(side === "buy" ? bal.weth : bal.base) / 10 ** inDecimals).toString())}
-            >
-              Balance {fmt(side === "buy" ? bal.weth : bal.base, inDecimals)}
-            </button>
-          )}
-        </span>
-        <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
-      </label>
-      <div className="quote">
-        {qErr ? (
-          <span className="bad-text">{qErr}</span>
-        ) : q ? (
-          <>
-            <div>
-              You get ≈ <strong>{fmt(q.amountOut, outDecimals, 6)}</strong> {outSymbol}
-            </div>
-            <div className="muted small">
-              Fee {fmt(q.fee, side === "buy" ? quote.decimals : token.decimals, 4)} · min received after {slippage / 100}%
-              slippage
-            </div>
-            {q.fill.kind === "graduation-boundary" && (
-              <div className="muted small">
-                This is the final fill. {fmt(q.amountLeft, inDecimals)} {side === "buy" ? quote.symbol : token.symbol}{" "}
-                will be returned.
-              </div>
-            )}
-          </>
-        ) : (
-          <span className="muted">Enter an amount</span>
-        )}
-      </div>
-      <label className="field inline">
-        <span>Slippage</span>
-        <select value={slippage} onChange={(e) => setSlippage(Number(e.target.value))}>
-          <option value={50}>0.5%</option>
-          <option value={100}>1%</option>
-          <option value={300}>3%</option>
-        </select>
-      </label>
-      {needsAck && (
-        <label className="ack">
-          <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
-          <span>I understand this launch cannot graduate and my {quote.symbol} may stay locked in the curve.</span>
-        </label>
-      )}
-      <button className="btn primary full" disabled={!!step || (!!wallet && (!q || (needsAck && !ack)))} onClick={go}>
-        {step ?? (wallet ? (side === "buy" ? "Buy" : "Sell") : "Connect wallet")}
-      </button>
-      {side === "buy" && bal && (
-        <p className="muted small">
-          Buys are paid in WETH. You have {fmt(bal.weth, 18)} WETH and {fmt(bal.eth, 18)} ETH
-          {bal.weth === 0n ? "; any missing WETH is wrapped from ETH first (one extra confirmation)." : "."}{" "}
-          <button className="link" onClick={wrap} disabled={!!step}>
-            Wrap {amount} ETH now
-          </button>
-        </p>
-      )}
-      {done && (
-        <Notice kind="ok">
-          Confirmed: <TxLink hash={done} />
-        </Notice>
-      )}
-      {err && <Notice kind="error">{err}</Notice>}
-    </section>
   );
 };
 

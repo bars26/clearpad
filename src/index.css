@@ -367,3 +367,45 @@ input::placeholder, textarea::placeholder { color: var(--dim); }
 }
 .ring-done .ring-label { color: var(--mint); font-size: 1.05rem; font-weight: 900; }
 .lookup .btn { white-space: nowrap; flex: none; }
+
+/* ---------- swap ---------- */
+.swap-page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 460px); gap: 2.5rem; align-items: start; }
+.swap-intro h1 { font-size: clamp(2rem, 4.2vw, 3rem); line-height: 1.06; }
+.swap-intro p { max-width: 46ch; }
+.sticky-col { position: sticky; top: 84px; }
+.swapbox h2 { margin: 0; }
+.slip { display: inline-flex; align-items: center; gap: .45rem; font-size: .82rem; color: var(--muted); font-weight: 600; }
+.slip select { width: auto; padding: .3rem .55rem; border-radius: 999px; font-size: .82rem; }
+.leg { background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 16px; padding: .8rem .95rem; margin-top: .8rem; transition: border-color .2s; }
+.leg:focus-within { border-color: rgba(102,109,251,.6); }
+.leg-top { display: flex; justify-content: space-between; font-size: .8rem; color: var(--muted); font-weight: 600; }
+.leg-main { display: flex; align-items: center; gap: .75rem; margin-top: .35rem; }
+.leg-main input { border: 0; background: none; padding: 0; font-family: var(--display); font-size: 1.75rem; font-weight: 700; min-width: 0; box-shadow: none; }
+.leg-main input:focus { box-shadow: none; }
+.out { flex: 1; font-family: var(--display); font-size: 1.75rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.token-chip { display: inline-flex; align-items: center; gap: .45rem; flex: none; padding: .3rem .7rem .3rem .3rem; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line-strong); color: var(--ink); font: inherit; font-weight: 800; font-family: var(--display); }
+.token-chip .avatar { width: 28px; height: 28px; border-radius: 50%; font-size: .66rem; }
+.token-chip.pickable { cursor: pointer; }
+.token-chip.pickable:hover { border-color: var(--blue); }
+.token-chip:disabled { opacity: 1; cursor: default; }
+.token-chip i { font-style: normal; color: var(--muted); font-size: .75rem; }
+.avatar.weth { background: linear-gradient(135deg, #8a92b2, #454a75); font-size: .95rem; }
+.flip { display: grid; place-items: center; width: 40px; height: 40px; margin: -12px auto; position: relative; z-index: 2; border-radius: 12px; border: 4px solid var(--bg-2); background: var(--surface-2); color: var(--ink); font-weight: 800; cursor: pointer; transition: transform .25s; }
+.flip:hover { transform: rotate(180deg); background: var(--blue); }
+.swapbox .kv { margin: 1rem 0 .9rem; }
+.swapbox .kv dd { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.modal-back { position: fixed; inset: 0; z-index: 50; background: rgba(3,5,12,.72); backdrop-filter: blur(6px); display: grid; place-items: start center; padding: 10vh 1rem 1rem; animation: fade .2s both; }
+.modal { width: min(460px, 100%); max-height: 76vh; display: flex; flex-direction: column; gap: .75rem; padding: 1.1rem; border-radius: 20px; background: var(--bg-2); border: 1px solid var(--line-strong); box-shadow: 0 40px 80px -30px rgba(0,0,0,.8); }
+.modal h2 { margin: 0; }
+.pick-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: .25rem; }
+.pick-list button { width: 100%; display: flex; align-items: center; gap: .7rem; padding: .55rem .6rem; border-radius: 12px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.pick-list button:hover { background: var(--surface-2); }
+.pick-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pick-name b { font-family: var(--display); }
+.pick-name span { color: var(--muted); font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pick-meta { display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; }
+@keyframes fade { from { opacity: 0; } }
+@media (max-width: 960px) {
+  .swap-page { grid-template-columns: 1fr; gap: 1.25rem; }
+  .sticky-col { position: static; }
+}
